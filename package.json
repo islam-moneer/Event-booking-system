@@ -1,0 +1,51 @@
+{
+  "name": "event-booking-system",
+  "version": "0.1.0",
+  "description": "Concurrency-safe multi-seat event booking API",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "cross-env NODE_ENV=test vitest run",
+    "test:watch": "cross-env NODE_ENV=test vitest",
+    "knex": "tsx node_modules/knex/bin/cli.js --knexfile knexfile.ts",
+    "migrate": "npm run knex -- migrate:latest",
+    "migrate:make": "npm run knex -- migrate:make -x ts",
+    "migrate:rollback": "npm run knex -- migrate:rollback",
+    "migrate:status": "npm run knex -- migrate:status",
+    "seed": "npm run knex -- seed:run",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "overrides": {
+    "rollup": "npm:@rollup/wasm-node@^4.62.3"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "knex": "^3.1.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.9.2",
+    "@types/supertest": "^6.0.3",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.7",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vitest": "^3.2.4"
+  }
+}

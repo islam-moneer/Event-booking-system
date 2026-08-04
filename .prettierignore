@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+
+# Prose and ADRs are hand-formatted; Prettier reflows tables and list markers
+# in ways that add noise to diffs without improving readability.
+*.md
