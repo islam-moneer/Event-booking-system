@@ -39,19 +39,21 @@ Each record states the context, the decision, consequences accepted, and alterna
 | [0004](docs/adr/0004-caching-scope.md) | Cache the event list, deliberately not the seat map |
 | [0005](docs/adr/0005-postgresql-over-nosql.md) | PostgreSQL, not a NoSQL store |
 | [0006](docs/adr/0006-mvp-scope-cuts.md) | MVP scope cuts: organizer role, payments, refunds |
+| [0007](docs/adr/0007-express-knex-vitest.md) | Express, Knex, and Vitest — why not Prisma |
 
 ## Tech stack
 
 | | |
 |---|---|
-| Runtime | Node.js |
+| Runtime | Node.js 22+, TypeScript, native ESM |
+| HTTP | Express 5 — native async error propagation ([ADR 0007](docs/adr/0007-express-knex-vitest.md)) |
 | Database | PostgreSQL — chosen for `SELECT ... FOR UPDATE` and multi-row ACID transactions ([ADR 0005](docs/adr/0005-postgresql-over-nosql.md)) |
+| Data access | Knex — query builder and migrations; keeps the locking SQL explicit rather than behind an ORM ([ADR 0007](docs/adr/0007-express-knex-vitest.md)) |
 | Cache | Redis — event list only, TTL-based ([ADR 0004](docs/adr/0004-caching-scope.md)) |
 | Real-time | WebSocket, for live seat map updates |
-| Auth | JWT |
+| Auth | JWT, bcrypt password hashing |
+| Testing | Vitest + Supertest, integration tests against a real PostgreSQL instance |
 | Architecture | Modular monolith, Controller → Service → Repository ([ADR 0003](docs/adr/0003-modular-monolith.md)) |
-
-_HTTP framework and migration tooling: TBD, recorded as an ADR once chosen._
 
 ## Deliberately out of scope
 
@@ -64,16 +66,95 @@ Cut so the concurrency work gets the time it needs — see [ADR 0006](docs/adr/0
 
 ## Getting started
 
-_TBD — filled in during Phase 0 setup. Will cover:_
+**Prerequisites**
 
-- _Prerequisites (Node version, PostgreSQL, Redis)_
-- _Install, environment configuration (`.env`, including `CHECKOUT_LOCK_TTL_SECONDS`), database creation_
-- _Running migrations and the seed script_
-- _Starting the server_
+- Node.js 22 or later (`node --version`)
+- Docker with Compose — PostgreSQL 17 and Redis 7 run as containers; no local install needed
+
+**1. Install dependencies**
+
+```bash
+npm install
+```
+
+**2. Start PostgreSQL and Redis**
+
+```bash
+docker compose up -d
+```
+
+Host ports are deliberately non-default — Postgres on **5433** and Redis on **6380** — so the containers don't collide with a locally installed instance. Both databases (`ebs_dev` and `ebs_test`) are created on first start by `docker/init-test-db.sql`.
+
+Wait for both to report healthy:
+
+```bash
+docker compose ps
+```
+
+**3. Configure the environment**
+
+```bash
+cp .env.example .env
+cp .env.test.example .env.test
+```
+
+The defaults match `docker-compose.yml` and work as-is. Two values are worth knowing:
+
+- `CHECKOUT_LOCK_TTL_SECONDS` — how long a checkout holds its seats before the lock is treated as expired. 300 in `.env`; **2** in `.env.test`, because the expiry and lazy-reclaim tests have to watch a lock actually expire within a test run.
+- `JWT_SECRET` — a development placeholder. Replace it for any real deployment.
+
+**4. Run migrations**
+
+```bash
+npm run migrate
+```
+
+The test database migrates itself — `tests/global-setup.ts` runs migrations before the suite, so `npm test` needs no separate step.
+
+**5. Start the server**
+
+```bash
+npm run dev     # tsx watch, restarts on change
+```
+
+Production build: `npm run build && npm start`.
+
+**Verify the setup**
+
+```bash
+curl -X POST http://localhost:3000/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"correct-horse-battery"}'
+```
+
+A `201` with a user object and no `password` field means the stack is wired end to end.
+
+**Other commands**
+
+| | |
+|---|---|
+| `npm test` | Full suite (see [Running the tests](#running-the-tests)) |
+| `npm run migrate:rollback` | Undo the last migration batch |
+| `npm run migrate:status` | Show applied and pending migrations |
+| `npm run migrate:make <name>` | Create a new migration |
+| `npm run seed` | Run seed scripts — events and seat maps (Phase 2) |
+| `npm run lint` / `npm run format` | ESLint / Prettier |
 
 ## Running the tests
 
-_TBD — filled in during Phase 1._
+**Prerequisites:**
+- PostgreSQL and Redis running via `docker compose up -d`
+- `.env.test` present (`cp .env.test.example .env.test`). The `ebs_test` database itself is created on first container start by `docker/init-test-db.sql`.
+- Note that `CHECKOUT_LOCK_TTL_SECONDS` is intentionally set to seconds (not minutes) — expiry and lazy-reclaim tests need locks that actually expire within a test run.
+
+**Execution:**
+- Migrations run automatically via `tests/global-setup.ts` before tests start — no manual migrate step needed.
+- Full suite: `npm test`
+- Watch mode: `npm run test:watch`
+- Single file: `npx cross-env NODE_ENV=test vitest run tests/integration/auth.routes.test.ts`
+
+**Safety:**
+The test suite refuses to run against any database whose name does not end in `_test`.
 
 The test suite is the point of this project. It includes explicit concurrency tests proving:
 
