@@ -164,4 +164,17 @@ The test suite is the point of this project. It includes explicit concurrency te
 
 ## API documentation
 
-_TBD — Postman / Swagger collection added in Phase 6._
+With the server running (`npm run dev`):
+
+| | |
+|---|---|
+| http://localhost:3000/docs | Swagger UI — browsable, with "Try it out" |
+| http://localhost:3000/docs.json | Raw OpenAPI 3.1 document (import into Postman or a codegen tool) |
+
+The spec lives in [`src/docs/openapi.ts`](src/docs/openapi.ts) and is written by hand rather than
+generated from route annotations — the surface is small enough that one readable file beats
+comments scattered across routers. `tests/integration/docs.test.ts` requests every documented
+path, so a route that gets renamed or removed fails the suite instead of rotting in the docs.
+
+**Testing a protected endpoint:** call `POST /login`, copy the `token`, click **Authorize** in
+Swagger UI and paste it. The token is remembered across page reloads.
